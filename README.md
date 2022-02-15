@@ -170,7 +170,7 @@ document `config.json`:
 }
 ```
 
-Then you can export only the `env` key by:
+Then you can export only the `environ` key by:
 
 ```
 $ json2env --export --path .environ config.json
@@ -320,4 +320,9 @@ And you can change the separators as well with `--list-sep` and `--kv-sep`:
 $ json2env --text --list-sep ';' --kv-sep '=' translate.json
 words='dos=two;tres=three;uno=one'
 ```
+
+## Known issues
+
+* Input files must come last on the command line
+* Needs better input validation & error messaging on bad input
 
