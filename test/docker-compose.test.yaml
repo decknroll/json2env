@@ -1,0 +1,13 @@
+version: '3'
+services:
+  sut:
+    build:
+      context: ..
+    image: decknroll/json2env:test
+    container_name: json2env
+    hostname: json2env
+    entrypoint: [ "/bin/sh", "/run_tests.sh" ]
+    volumes:
+    - ./testfiles:/testfiles
+    - ./run_tests.sh:/run_tests.sh
+

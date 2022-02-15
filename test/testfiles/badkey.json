@@ -1,0 +1,3 @@
+{
+  "bad\nkey": "This key can't be used as-is shell environment variable"
+}

@@ -1,0 +1,262 @@
+#!/bin/sh
+
+# Dependencies: jq tr sed
+# Tested with: busybox bourne bash zsh
+
+usage() {
+  if [ "${1:-}" ]; then echo "$1" >&2; fi
+  name="${0##*/}"
+  cat <<EOF
+USAGE: $name [ OPTIONS ] [ FILENAMES ]
+
+Kilna's swiss army knife for turning key-values in a JSON object into eval-able
+shell code for setting environment variables.
+
+Processes FILENAMES as JSON documents if provided, otherwise processes standard
+input as a JSON document.
+
+Options:
+
+         --export : Export shell variables
+               -x   (prepend each key=val with shell's export keyword)
+
+      --path PATH : JSON sub-path in jq .path.to.the.object dot-prefix notation
+          -p PATH   (e.g '.env_vars') - defaults to '.' for the root JSON object.
+                    The referenced path must only be a JSON object (dict/map/hash),
+                    not an array, string, etc.
+
+  --prefix PREFIX : Prepend this string the to names of output shell variables
+        -p PREFIX
+
+          --upper : Translate JSON keys into uppercase shell environment vars
+               -u
+
+          --lower : Translate JSON keys into lowercase shell environment vars
+               -l
+
+        --key KEY : Only output this single key in the object
+           -k KEY   (defaults to all keys)
+
+  --env-name NAME : When outputting a single key with --key, force this value
+          -e NAME   as the environment variable name
+
+           --text : JSON objects and arrays become newline delimited text
+               -t   rather than the default behavior of setting the shell
+                    environment variable to a JSON string representation
+
+  --kv-sep STRING : Key-value separator for list-style translation of JSON
+        -K STRING   objects (defaults to ':')
+
+--list-sep STRING : Record separator for list-style translation
+        -L STRING   (defaults to newline)
+
+          --array : JSON arrays are translated into POSIX shell native arrays
+               -a   (overrides --text)
+
+          --assoc : JSON objects are tranlated into bash-style native
+               -a   associative arrays (overrides --text)
+
+          --force : Output shell native for --array or --assoc even if the
+               -f   current shell does not support it
+
+         --strict : Fail on JSON keys which aren't alphanumeric + underscore
+               -s   (defaults to translating keys)
+
+  --out-file FILE : Output to a file instead of STDOUT
+          -o FILE
+
+        --compact : Outpu Opt JSON strings in compact mode
+               -c
+
+           --help : Show help
+               -h
+
+This script defaults to /bin/sh, if you wish to run it under your current shell
+instead, call it as such:
+
+  \$SHELL $name
+
+EOF
+  if [ "${1:-}" != '' ]; then exit "${2:-1}"; else exit 0; fi
+}
+
+debug() { [ "$debug" ] && echo "$1" >&2; };
+
+die() { echo "$1" >&2; [ -e "$outfile" ] && rm "$outfile"; exit "${2:-1}"; };
+
+shell_quote() {
+  if [ "$(echo "$1" | tr -c -d a-zA-Z0-9)" == "$1" ]; then
+    echo "$1" # Simple shell values don't need quoting
+  else
+    echo "'$(echo "$1" | sed -e "s/'/'\\\\''/")'"
+  fi
+}
+
+# TODO:
+# Shell escape key names passed into jq
+# Fix chomped ending newlines
+# Make a README
+
+c='' # jq -c flag
+case='as-is'
+export debug=''
+env_name=''
+evaluate=''
+force=''
+kv_sep=' '
+list_sep=$'\n'
+native_array=''
+native_assoc=''
+outfile=''
+path='.'
+prefix=''
+strict=''
+text=''
+only_key=''
+x='' # declare -x flag
+
+while [ $# -gt 0 ]; do case "$1" in
+  -a|--array)    native_array=true;;
+  -A|--assoc)    native_assoc=true;;
+  -c|--compact)  c='c';;
+  -d|--debug)    debug=true;;
+  -e|--env-name) env_name="$2"; shift;;
+  -f|--force)    force=true;;
+  -h|--help)     usage;;
+  -k|--key)      only_key="$2"; shift;;
+  -K|--kv-sep)   kv_sep="$2"; shift;;
+  -l|--lower)    case='lower';;
+  -L|--list-sep) list_sep="$2"; shift;;
+  -o|--out-file) outfile="$2"; shift;;
+  -p|--path)     path="$2"; shift;;
+  -P|--prefix)   prefix="$2"; shift;;
+  -s|--strict)   strict=true;;
+  -t|--text)     text=true;;
+  -u|--upper)    case='upper';;
+  -x|--export)   x='x';;
+  -*)            usage "Unknown flag: $1";;
+  *)             break;;
+esac; shift; done
+
+if [ "${#@}" -eq 0 ]; then
+  if [ -t 0 ]; then
+    usage "Must be piped into or a JSON filename provided on command line" 3
+  else
+    set -- '-'
+  fi
+fi
+
+if [ "$native_array" ] && [ ! "$force" ]; then
+  if ! (eval 'declare -a zzz=(a b) && [ "${zzz[1]}" == "b" ]' >/dev/null 2>&1); then
+    die "$SHELL does not support arrays with --array, use --force to output anyway"
+  fi
+fi
+
+if [ "$native_assoc" ] && [ ! "$force" ]; then
+  if ! (eval 'declare -A zzz=([a]=b) && [ "${zzz[a]}" == "b" ]' >/dev/null 2>&1); then
+    die "$SHELL does not support associative arrays with --assoc, use --force to output anyway"
+  fi
+fi
+
+process_key() {
+
+  key="$1"
+  json="$(cat -)"
+
+  debug ''
+  debug "  KEY: $key"
+
+  if [ "$env_name" ]; then varname="$env_name"; else varname="$key"; fi
+  # Clean up varname to translate space and - to underscore, and
+  # remove non-alphanum + underscore chars
+  varname="$(echo "$varname" | tr ' -' '__' | tr -c -d a-zA-Z0-9_)"
+  # If we're in strict mode, fail if the key has been changed
+  if [ "$strict" ] && [ "$varname" != "$key" ]; then
+    die "Invalid key '$(shell_quote "$key")'" 6
+  fi
+  [ "$case" == 'lower' ] && varname="$(echo "$varname" | tr A-Z a-z)"
+  [ "$case" == 'upper' ] && varname="$(echo "$varname" | tr a-z A-Z)"
+  varname="$prefix$varname"
+  debug "  VARNAME: $varname"
+
+  translate='raw'
+  type="$(echo "$json" | jq -r "$path | .[\"$key\"] | type")"
+  debug "  TYPE: $type"
+  if [ "$type" == "array" ]; then
+    [ "$text" ]         && translate=text-array
+    [ "$native_array" ] && translate=native-array
+  elif [ "$type" == "object" ]; then
+    [ "$text" ]         && translate=text-assoc
+    [ "$native_assoc" ] && translate=native-assoc
+  fi
+  debug "  TRANSLATE: $translate"
+
+  case "$translate" in
+    raw)
+      [ "$x" ] && printf '%s' 'export ';
+      val="$(echo "$json" | jq -${c}r "$path | .[\"$key\"]")";
+      echo "$varname=$(shell_quote "$val")";
+      ;;
+    native-assoc)
+      echo "declare -A$x $varname=(";
+      echo "$json" | jq -j "$path | .[\"$key\"] | keys[] | (. + \"\u0000\")" | while read -r -d '' objkey; do
+        objval="$(echo "$json" | jq -${c}r "$path | .[\"$key\"] | .[\"$objkey\"]")";
+        echo "  [$(shell_quote "$objkey")]=$(shell_quote "$objval")";
+      done;
+      echo ')';
+      ;;
+    native-array)
+      [ "$x" ] && printf '%s' 'export ';
+      echo "$varname=($(echo "$json" | jq -${c}r "$path | .[\"$key\"] | @sh"))";
+      ;;
+    text-array)
+      [ "$x" ] && printf '%s' 'export ';
+      val="$(
+        echo "$json" | jq -j "$path | .[\"$key\"] | .[] | (. + \"\u0000\")" | \
+        while read -r -d '' thisval; do
+          printf '%s' "${thisval}${list_sep}"
+        done
+      )"
+      echo "$varname=$(shell_quote "${val%"${list_sep}"}")";
+      ;;
+    text-assoc)
+      [ "$x" ] && printf '%s' 'export ';
+      val="$(
+        echo "$json" | jq -j "$path | .[\"$key\"] | keys[] | (. + \"\u0000\")" | \
+        while read -r -d '' thiskey; do
+          thisval="$(echo "$json" | jq -${c}r "$path | .[\"$key\"] | .[\"$thiskey\"]")"
+          printf '%s' "${thiskey}${kv_sep}${thisval}${list_sep}"
+        done
+      )"
+      echo "$varname=$(shell_quote "${val%"${list_sep}"}")";
+      ;;
+  esac
+
+}
+
+for file in "$@"; do
+
+  debug "FILE: $file"
+  json="$(cat "$file")"
+  debug "JSON:"
+  debug "$json"
+
+  out="$(
+    if [ "$only_key" ]; then
+      echo "$json" | process_key "$only_key"
+    else
+      echo "$json" | jq -j "$path | keys[] | (. + \"\u0000\")" | \
+      while read -r -d '' key; do
+        echo "$json" | process_key "$key"
+      done
+    fi
+  )"
+
+  if [ "$outfile" ]; then
+    echo "$out" >"$outfile"
+  else
+    echo "$out"
+  fi
+
+done
+
