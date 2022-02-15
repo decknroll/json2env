@@ -93,6 +93,7 @@ shell_quote() {
 }
 
 # TODO:
+# Add license
 # Check --path is correct
 # Fix it so options and filenames can be mixed (right now inputs must be last)
 # Enable --key=val style params in addition to --key value
