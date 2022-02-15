@@ -21,9 +21,9 @@ Options:
                -x   (prepend each key=val with shell's export keyword)
 
       --path PATH : JSON sub-path in jq .path.to.the.object dot-prefix notation
-          -p PATH   (e.g '.env_vars') - defaults to '.' for the root JSON object.
-                    The referenced path must only be a JSON object (dict/map/hash),
-                    not an array, string, etc.
+          -p PATH   (e.g '.env_vars') - defaults to '.' for the root JSON
+                    object. The referenced path must only be a JSON object
+                    (dict/map/hash), not an array, string, etc.
 
   --prefix PREFIX : Prepend this string the to names of output shell variables
         -p PREFIX
@@ -65,7 +65,7 @@ Options:
   --out-file FILE : Output to a file instead of STDOUT
           -o FILE
 
-        --compact : Outpu Opt JSON strings in compact mode
+        --compact : Output JSON strings in compact mode
                -c
 
            --help : Show help
@@ -93,9 +93,17 @@ shell_quote() {
 }
 
 # TODO:
+# Check --path is correct
+# Fix it so options and filenames can be mixed (right now inputs must be last)
+# Enable --key=val style params in addition to --key value
 # Shell escape key names passed into jq
-# Fix chomped ending newlines
-# Make a README
+# Defaults environment variable / rcfile
+# Fix chomped ending newlines from using $()
+# Finish tests/
+# Enable DockerHub automated tests?
+# Create initial release tag
+# Create dockerhub build from tag
+# Create make target for release of tag
 
 c='' # jq -c flag
 case='as-is'
@@ -199,7 +207,8 @@ process_key() {
       ;;
     native-assoc)
       echo "declare -A$x $varname=(";
-      echo "$json" | jq -j "$path | .[\"$key\"] | keys[] | (. + \"\u0000\")" | while read -r -d '' objkey; do
+      echo "$json" | jq -j "$path | .[\"$key\"] | keys[] | (. + \"\u0000\")" | \
+      while read -r -d '' objkey; do
         objval="$(echo "$json" | jq -${c}r "$path | .[\"$key\"] | .[\"$objkey\"]")";
         echo "  [$(shell_quote "$objkey")]=$(shell_quote "$objval")";
       done;
