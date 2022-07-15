@@ -3,6 +3,21 @@
 # Dependencies: jq tr sed
 # Tested with: busybox bourne bash zsh
 
+# TODO:
+# Add license
+# Check --path is correct
+# Prevent --env-name unless --key is being used
+# Fix it so options and filenames can be mixed (right now input files must be last)
+# Enable --key=val style params in addition to --key value
+# Shell escape key names passed into jq
+# Defaults environment variable / rcfile
+# Fix chomped ending newlines from using $()
+# Finish tests/
+# Enable DockerHub automated tests?
+# Create initial release tag
+# Create dockerhub build from tag
+# Create make target for release of tag
+
 usage() {
   if [ "${1:-}" ]; then echo "$1" >&2; fi
   name="${0##*/}"
@@ -44,10 +59,10 @@ Options:
                -t   rather than the default behavior of setting the shell
                     environment variable to a JSON string representation
 
-  --kv-sep STRING : Key-value separator for list-style translation of JSON
-        -K STRING   objects (defaults to ':')
+  --kv-sep STRING : Key-value separator for text-style translation of JSON
+        -K STRING   objects (defaults to space)
 
---list-sep STRING : Record separator for list-style translation
+--list-sep STRING : Array / object record separator for text-style translation
         -L STRING   (defaults to newline)
 
           --array : JSON arrays are translated into POSIX shell native arrays
@@ -91,20 +106,6 @@ shell_quote() {
     echo "'$(echo "$1" | sed -e "s/'/'\\\\''/")'"
   fi
 }
-
-# TODO:
-# Add license
-# Check --path is correct
-# Fix it so options and filenames can be mixed (right now inputs must be last)
-# Enable --key=val style params in addition to --key value
-# Shell escape key names passed into jq
-# Defaults environment variable / rcfile
-# Fix chomped ending newlines from using $()
-# Finish tests/
-# Enable DockerHub automated tests?
-# Create initial release tag
-# Create dockerhub build from tag
-# Create make target for release of tag
 
 c='' # jq -c flag
 case='as-is'
