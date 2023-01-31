@@ -3,9 +3,25 @@
 # Dependencies: jq tr sed
 # Tested with: busybox bourne bash zsh
 
+# TODO:
+# Add license
+# Check --path is correct
+# Prevent --env-name unless --key is being used
+# Fix it so options and filenames can be mixed (right now input files must be last)
+# Enable --key=val style params in addition to --key value
+# Shell escape key names passed into jq
+# Defaults environment variable / rcfile
+# Fix chomped ending newlines from using $()
+# Finish tests/
+# Enable DockerHub automated tests?
+# Create initial release tag
+# Create dockerhub build from tag
+# Create make target for release of tag
+
+name="${0##*/}"
+
 usage() {
   if [ "${1:-}" ]; then echo "$1" >&2; fi
-  name="${0##*/}"
   cat <<EOF
 USAGE: $name [ OPTIONS ] [ FILENAMES ]
 
@@ -44,10 +60,10 @@ Options:
                -t   rather than the default behavior of setting the shell
                     environment variable to a JSON string representation
 
-  --kv-sep STRING : Key-value separator for list-style translation of JSON
-        -K STRING   objects (defaults to ':')
+  --kv-sep STRING : Key-value separator for text-style translation of JSON
+        -K STRING   objects (defaults to space)
 
---list-sep STRING : Record separator for list-style translation
+--list-sep STRING : Array / object record separator for text-style translation
         -L STRING   (defaults to newline)
 
           --array : JSON arrays are translated into POSIX shell native arrays
@@ -85,26 +101,12 @@ debug() { [ "$debug" ] && echo "$1" >&2; };
 die() { echo "$1" >&2; [ -e "$outfile" ] && rm "$outfile"; exit "${2:-1}"; };
 
 shell_quote() {
-  if [ "$(echo "$1" | tr -c -d a-zA-Z0-9)" == "$1" ]; then
+  if [ "$(echo "$1" | tr -c -d a-zA-Z0-9)" = "$1" ]; then
     echo "$1" # Simple shell values don't need quoting
   else
     echo "'$(echo "$1" | sed -e "s/'/'\\\\''/")'"
   fi
 }
-
-# TODO:
-# Add license
-# Check --path is correct
-# Fix it so options and filenames can be mixed (right now inputs must be last)
-# Enable --key=val style params in addition to --key value
-# Shell escape key names passed into jq
-# Defaults environment variable / rcfile
-# Fix chomped ending newlines from using $()
-# Finish tests/
-# Enable DockerHub automated tests?
-# Create initial release tag
-# Create dockerhub build from tag
-# Create make target for release of tag
 
 c='' # jq -c flag
 case='as-is'
@@ -117,7 +119,7 @@ list_sep=$'\n'
 native_array=''
 native_assoc=''
 outfile=''
-path='.'
+json_path='.'
 prefix=''
 strict=''
 text=''
@@ -137,7 +139,7 @@ while [ $# -gt 0 ]; do case "$1" in
   -l|--lower)    case='lower';;
   -L|--list-sep) list_sep="$2"; shift;;
   -o|--out-file) outfile="$2"; shift;;
-  -p|--path)     path="$2"; shift;;
+  -p|--path)     json_path="$2"; shift;;
   -P|--prefix)   prefix="$2"; shift;;
   -s|--strict)   strict=true;;
   -t|--text)     text=true;;
@@ -156,13 +158,13 @@ if [ "${#@}" -eq 0 ]; then
 fi
 
 if [ "$native_array" ] && [ ! "$force" ]; then
-  if ! (eval 'declare -a zzz=(a b) && [ "${zzz[1]}" == "b" ]' >/dev/null 2>&1); then
+  if ! (eval 'declare -a zzz=(a b) && [ "${zzz[1]}" = "b" ]' >/dev/null 2>&1); then
     die "$SHELL does not support arrays with --array, use --force to output anyway"
   fi
 fi
 
 if [ "$native_assoc" ] && [ ! "$force" ]; then
-  if ! (eval 'declare -A zzz=([a]=b) && [ "${zzz[a]}" == "b" ]' >/dev/null 2>&1); then
+  if ! (eval 'declare -A zzz=([a]=b) && [ "${zzz[a]}" = "b" ]' >/dev/null 2>&1); then
     die "$SHELL does not support associative arrays with --assoc, use --force to output anyway"
   fi
 fi
@@ -183,18 +185,22 @@ process_key() {
   if [ "$strict" ] && [ "$varname" != "$key" ]; then
     die "Invalid key '$(shell_quote "$key")'" 6
   fi
-  [ "$case" == 'lower' ] && varname="$(echo "$varname" | tr A-Z a-z)"
-  [ "$case" == 'upper' ] && varname="$(echo "$varname" | tr a-z A-Z)"
+  if [ "$case" = 'lower' ]; then
+    varname="$(echo "$varname" | tr A-Z a-z)"
+  fi
+  if [ "$case" = 'upper' ]; then
+    varname="$(echo "$varname" | tr a-z A-Z)"
+  fi
   varname="$prefix$varname"
   debug "  VARNAME: $varname"
 
   translate='raw'
-  type="$(echo "$json" | jq -r "$path | .[\"$key\"] | type")"
+  type="$(echo "$json" | jq -r "$json_path | .[\"$key\"] | type")"
   debug "  TYPE: $type"
-  if [ "$type" == "array" ]; then
+  if [ "$type" = "array" ]; then
     [ "$text" ]         && translate=text-array
     [ "$native_array" ] && translate=native-array
-  elif [ "$type" == "object" ]; then
+  elif [ "$type" = "object" ]; then
     [ "$text" ]         && translate=text-assoc
     [ "$native_assoc" ] && translate=native-assoc
   fi
@@ -203,26 +209,26 @@ process_key() {
   case "$translate" in
     raw)
       [ "$x" ] && printf '%s' 'export ';
-      val="$(echo "$json" | jq -${c}r "$path | .[\"$key\"]")";
+      val="$(echo "$json" | jq -${c}r "$json_path | .[\"$key\"]")";
       echo "$varname=$(shell_quote "$val")";
       ;;
     native-assoc)
       echo "declare -A$x $varname=(";
-      echo "$json" | jq -j "$path | .[\"$key\"] | keys[] | (. + \"\u0000\")" | \
+      echo "$json" | jq -j "$json_path | .[\"$key\"] | keys[] | (. + \"\u0000\")" | \
       while read -r -d '' objkey; do
-        objval="$(echo "$json" | jq -${c}r "$path | .[\"$key\"] | .[\"$objkey\"]")";
+        objval="$(echo "$json" | jq -${c}r "$json_path | .[\"$key\"] | .[\"$objkey\"]")";
         echo "  [$(shell_quote "$objkey")]=$(shell_quote "$objval")";
       done;
       echo ')';
       ;;
     native-array)
       [ "$x" ] && printf '%s' 'export ';
-      echo "$varname=($(echo "$json" | jq -${c}r "$path | .[\"$key\"] | @sh"))";
+      echo "$varname=($(echo "$json" | jq -${c}r "$json_path | .[\"$key\"] | @sh"))";
       ;;
     text-array)
       [ "$x" ] && printf '%s' 'export ';
       val="$(
-        echo "$json" | jq -j "$path | .[\"$key\"] | .[] | (. + \"\u0000\")" | \
+        echo "$json" | jq -j "$json_path | .[\"$key\"] | .[] | (. + \"\u0000\")" | \
         while read -r -d '' thisval; do
           printf '%s' "${thisval}${list_sep}"
         done
@@ -232,9 +238,9 @@ process_key() {
     text-assoc)
       [ "$x" ] && printf '%s' 'export ';
       val="$(
-        echo "$json" | jq -j "$path | .[\"$key\"] | keys[] | (. + \"\u0000\")" | \
+        echo "$json" | jq -j "$json_path | .[\"$key\"] | keys[] | (. + \"\u0000\")" | \
         while read -r -d '' thiskey; do
-          thisval="$(echo "$json" | jq -${c}r "$path | .[\"$key\"] | .[\"$thiskey\"]")"
+          thisval="$(echo "$json" | jq -${c}r "$json_path | .[\"$key\"] | .[\"$thiskey\"]")"
           printf '%s' "${thiskey}${kv_sep}${thisval}${list_sep}"
         done
       )"
@@ -255,7 +261,7 @@ for file in "$@"; do
     if [ "$only_key" ]; then
       echo "$json" | process_key "$only_key"
     else
-      echo "$json" | jq -j "$path | keys[] | (. + \"\u0000\")" | \
+      echo "$json" | jq -j "$json_path | keys[] | (. + \"\u0000\")" | \
       while read -r -d '' key; do
         echo "$json" | process_key "$key"
       done

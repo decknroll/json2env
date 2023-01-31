@@ -1,4 +1,4 @@
-FROM alpine:3.14
+FROM alpine:latest
 
 COPY json2env /usr/local/bin/json2env
 

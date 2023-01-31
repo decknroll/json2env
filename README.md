@@ -5,7 +5,7 @@
 [![](https://img.shields.io/docker/stars/decknroll/json2env.svg?style=plastic)](https://hub.docker.com/r/decknroll/json2env/)
 [![](https://img.shields.io/badge/docker_build-automated-blue.svg?style=plastic)](https://cloud.docker.com/swarm/kilna/repository/docker/decknroll/json2env/builds)
 
-DockerHub: [json2evn](https://hub.docker.com/r/decknroll/json2env/)
+DockerHub: [json2env](https://hub.docker.com/r/decknroll/json2env/)
 GitHub: [json2env](https://github.com/decknroll/json2env)
 
 Kilna's swiss army knife for turning JSON objects into eval-able environment
@@ -16,7 +16,7 @@ meet the following goals:
 
 * Runs under Alpine Linux
 * Has only POSIX or busybox tools, plus `jq` as its preprequisites
-* Runs under `dash` (busybox/alpine), `bash` and `ksh` shells
+* Runs under `dash` (busybox/alpine), `bash`, `ksh` and `zsh` shells
 * Can output JSON arrays as:
   * Native shell arrays
   * Delimited strings
@@ -228,7 +228,7 @@ $ json2env --compact letters.json
 alpha='["a","b","c"]'
 ```
 
-JSON isn't very handy for manipulating in the shell, so you can alos
+JSON isn't very handy for manipulating in the shell, so you can also
 use `--array` to output as a shell array:
 
 ```
@@ -249,7 +249,7 @@ b
 c'
 ```
 
-The default delimited is newline, if you want to use for example spaces
+The default delimiter is newline, if you want to use for example spaces
 or commas instead, use `--list-sep`:
 
 ```
