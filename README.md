@@ -16,7 +16,7 @@ meet the following goals:
 
 * Runs under Alpine Linux
 * Has only POSIX or busybox tools, plus `jq` as its preprequisites
-* Runs under `dash` (busybox/alpine), `bash` and `ksh` shells
+* Runs under `dash` (busybox/alpine), `bash`, `ksh` and `zsh` shells
 * Can output JSON arrays as:
   * Native shell arrays
   * Delimited strings
