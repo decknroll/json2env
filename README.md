@@ -97,7 +97,7 @@ input as a JSON document.
   --out-file FILE : Output to a file instead of STDOUT
           -o FILE
 
-        --compact : Outpu Opt JSON strings in compact mode
+        --compact : Output JSON strings in compact mode
                -c
 
            --help : Show help
