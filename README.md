@@ -243,7 +243,7 @@ Alpine Linux), or sometimes you just want to flatten to a text-based list,
 and that's what `--text` is for:
 
 ```
-$ json2env --array letters.json
+$ json2env --text letters.json
 alpha='a
 b
 c'
