@@ -3,7 +3,7 @@
 [![](https://images.microbadger.com/badges/image/decknroll/json2env.svg)](https://microbadger.com/images/decknroll.com/json2env)
 [![](https://img.shields.io/docker/pulls/decknroll/json2env.svg?style=plastic)](https://hub.docker.com/r/decknroll/json2env/)
 [![](https://img.shields.io/docker/stars/decknroll/json2env.svg?style=plastic)](https://hub.docker.com/r/decknroll/json2env/)
-[![](https://img.shields.io/badge/docker_build-automated-blue.svg?style=plastic)](https://cloud.docker.com/swarm/decknroll/repository/docker/decknroll/json2env/builds)
+[![](https://img.shields.io/badge/docker_build-automated-blue.svg?style=plastic)](https://hub.docker.com/repository/docker/decknroll/json2env/builds)
 
 DockerHub: [json2env](https://hub.docker.com/r/decknroll/json2env/)
 GitHub: [json2env](https://github.com/decknroll/json2env)
