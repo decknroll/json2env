@@ -119,7 +119,7 @@ All of the command line parameters are supported, pass them as options to
 $ cat foo.json | docker run -i decknroll/json2env --lower --prefix env_ --text > foo.sh
 ```
 
-The Docker image is only 7mb in size.
+The Docker image is only 4mb in size.
 
 ## Examples
 
