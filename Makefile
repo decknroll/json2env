@@ -7,8 +7,11 @@ show-test: clean show-test-run clean
 show-test-run:
 	cd test && docker-compose -f docker-compose.test.yaml up --abort-on-container-exit
 
-test: FORCE
+test: FORCE docker-run-test
 	cd test && docker-compose -f docker-compose.test.yaml run --rm sut
+
+docker-run-test:
+	echo '{"docker-run-test":"success"}' | docker run -i decknroll/json2env:build
 
 FORCE:
 	# https://www.gnu.org/software/make/manual/html_node/Force-Targets.html

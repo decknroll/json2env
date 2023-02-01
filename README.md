@@ -109,14 +109,14 @@ This project also builds an associated docker image `decknroll/json2env`, so
 you can run `json2env` without installing locally:
 
 ```
-$ cat env.json | docker run decknroll/json2env > env.sh
+$ cat env.json | docker run -i decknroll/json2env > env.sh
 ```
 
 All of the command line parameters are supported, pass them as options to
 `docker run` the same as if you were calling the script directly:
 
 ```
-$ cat foo.json | docker run decknroll/json2env --lower --prefix env_ --text > foo.sh
+$ cat foo.json | docker run -i decknroll/json2env --lower --prefix env_ --text > foo.sh
 ```
 
 The Docker image is only 7mb in size.

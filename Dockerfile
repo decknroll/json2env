@@ -8,8 +8,8 @@ RUN set -e -u -o pipefail -x; \
     apk --no-cache add --no-scripts jq; \
     cd /usr/local/bin; \
     echo '#!/bin/sh' >entrypoint.sh; \
-    echo '/usr/local/bin/json2env "$@"' >entrypoint.sh; \
-    chmod +x json2env entrypoint.sh
+    echo '/usr/local/bin/json2env "$@"' >>entrypoint.sh; \
+    chmod +x entrypoint.sh json2env
 
 ENTRYPOINT [ "/usr/local/bin/entrypoint.sh" ]
 
