@@ -14,7 +14,7 @@ FORCE:
 	# https://www.gnu.org/software/make/manual/html_node/Force-Targets.html
 
 push:
-	docker tag decknroll/ops-admin:build decknroll/json2env:latest
+	docker tag decknroll/json2env:build decknroll/json2env:latest
 	docker push decknroll/json2env:latest
 
 clean:
